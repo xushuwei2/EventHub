@@ -1,0 +1,12 @@
+{{define "test_response"}}
+<div class="card">
+  <h2>请求与响应</h2>
+  <label>请求体预览</label>
+  <pre id="request-preview" class="code-block">（发送后显示）</pre>
+  <label>响应</label>
+  <pre id="response-preview" class="code-block response-idle">等待发送…</pre>
+  {{if .TestHint}}
+  <p class="hint">{{.TestHint}}</p>
+  {{end}}
+</div>
+{{end}}

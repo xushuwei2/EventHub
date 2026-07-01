@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>活跃概览 - EventHub</title>
+  <link rel="stylesheet" href="/reporting/admin/static/style.css">
+</head>
+<body>
+  {{template "nav" .}}
+  <main class="container">
+    <h1>活跃概览</h1>
+
+    <form class="filters" method="get">
+      <select name="project">
+        {{range .Projects}}
+        <option value="{{.ProjectKey}}" {{if eq $.ProjectKey .ProjectKey}}selected{{end}}>{{.ProjectKey}}</option>
+        {{end}}
+      </select>
+      <button type="submit">切换项目</button>
+    </form>
+
+    <div class="grid-2" style="margin-top:16px">
+      <div class="card">
+        <h2>MAU（近 30 日）</h2>
+        <p class="stat-big">{{.MAU}}</p>
+        <p class="hint">去重活跃用户数（需 JWT 携带 user_id）</p>
+      </div>
+      <div class="card">
+        <h2>说明</h2>
+        <p class="hint">任意行为打点即计为活跃。匿名用户（无 user_id）仅计入事件总量，不计入 DAU/MAU。</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h2>近 30 日 DAU 趋势</h2>
+      <table class="data-table">
+        <thead>
+          <tr><th>日期</th><th>DAU</th><th>新增用户</th><th>事件数</th></tr>
+        </thead>
+        <tbody>
+          {{range .Trend}}
+          <tr>
+            <td>{{.StatDate}}</td>
+            <td>{{.DAU}}</td>
+            <td>{{.NewUsers}}</td>
+            <td>{{.EventCount}}</td>
+          </tr>
+          {{else}}
+          <tr><td colspan="4">暂无数据，请先通过 <code>POST /reporting/v1/track/batch</code> 上报行为打点</td></tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </main>
+</body>
+</html>

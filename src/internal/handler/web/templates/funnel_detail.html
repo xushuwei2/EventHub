@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Funnel.FunnelName}} - 漏斗详情</title>
+  <link rel="stylesheet" href="/reporting/admin/static/style.css">
+</head>
+<body>
+  {{template "nav" .}}
+  <main class="container">
+    <p><a href="/reporting/admin/funnels">← 返回漏斗列表</a></p>
+    <h1>{{.Funnel.FunnelName}}</h1>
+    <p class="hint">项目 <code>{{.Funnel.ProjectKey}}</code> · funnelKey <code>{{.Funnel.FunnelKey}}</code> · 转化窗口 {{.Funnel.WindowHours}} 小时</p>
+
+    <form class="filters" method="get">
+      <label>统计天数</label>
+      <select name="days">
+        <option value="7" {{if eq .Days 7}}selected{{end}}>7 天</option>
+        <option value="14" {{if eq .Days 14}}selected{{end}}>14 天</option>
+        <option value="30" {{if eq .Days 30}}selected{{end}}>30 天</option>
+      </select>
+      <button type="submit">刷新</button>
+      <a href="/reporting/admin/funnels/{{.Funnel.ID}}/edit" class="btn-secondary" style="margin-left:8px">编辑配置</a>
+    </form>
+
+    <div class="card" style="margin-top:16px">
+      <h2>逐步转化率（近 {{.Days}} 日）</h2>
+      <table class="data-table">
+        <thead>
+          <tr><th>顺序</th><th>stepKey</th><th>名称</th><th>用户数</th><th>相对上步</th><th>相对首步</th></tr>
+        </thead>
+        <tbody>
+          {{range .Stats}}
+          <tr>
+            <td>{{.StepOrder}}</td>
+            <td><code>{{.StepKey}}</code></td>
+            <td>{{.StepName}}</td>
+            <td>{{.UserCount}}</td>
+            <td>{{if eq .StepOrder 1}}—{{else}}{{printf "%.1f" .ConvFromPrev}}%{{end}}</td>
+            <td>{{printf "%.1f" .ConvFromFirst}}%</td>
+          </tr>
+          {{else}}
+          <tr><td colspan="6">暂无步骤，请在下方添加</td></tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h2>漏斗步骤配置</h2>
+      <table class="data-table">
+        <thead><tr><th>顺序</th><th>stepKey</th><th>名称</th><th></th></tr></thead>
+        <tbody>
+          {{range .Funnel.Steps}}
+          <tr>
+            <td>{{.StepOrder}}</td>
+            <td><code>{{.StepKey}}</code></td>
+            <td>{{.StepName}}</td>
+            <td>
+              <form method="post" action="/reporting/admin/funnels/{{$.Funnel.ID}}/steps/{{.ID}}/delete" style="display:inline">
+                <button type="submit" class="btn-secondary btn-sm">删除</button>
+              </form>
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+
+      <form method="post" action="/reporting/admin/funnels/{{.Funnel.ID}}/steps" class="form-card" style="margin-top:16px">
+        <h3>添加步骤</h3>
+        <label>stepKey（与打点字段一致）</label>
+        <input type="text" name="step_key" required placeholder="home_view">
+        <label>显示名称</label>
+        <input type="text" name="step_name" required placeholder="首页浏览">
+        <label>顺序（从 1 开始）</label>
+        <input type="number" name="step_order" min="1" required value="{{.NextStepOrder}}">
+        <button type="submit" class="btn-primary">添加</button>
+      </form>
+    </div>
+  </main>
+</body>
+</html>

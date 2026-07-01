@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>反馈详情 - EventHub</title>
+  <link rel="stylesheet" href="/reporting/admin/static/style.css">
+</head>
+<body>
+  {{template "nav" .}}
+  <main class="container">
+    <div class="detail-header">
+      <h1>用户反馈</h1>
+      <div class="meta">
+        <span class="badge status-{{.Feedback.Status}}">{{.Feedback.Status}}</span>
+        <span><code>{{.Feedback.ProjectKey}}</code></span>
+        <span>{{.Feedback.Category}}</span>
+        <span>{{.Feedback.SubmittedAt.Format "2006-01-02 15:04:05"}}</span>
+      </div>
+    </div>
+
+    <form method="post" action="/reporting/admin/feedback/{{.Feedback.ID}}/status" class="status-form feedback-form">
+      <select name="status">
+        <option value="open" {{if eq .Feedback.Status "open"}}selected{{end}}>open</option>
+        <option value="processing" {{if eq .Feedback.Status "processing"}}selected{{end}}>processing</option>
+        <option value="resolved" {{if eq .Feedback.Status "resolved"}}selected{{end}}>resolved</option>
+        <option value="closed" {{if eq .Feedback.Status "closed"}}selected{{end}}>closed</option>
+      </select>
+      <textarea name="admin_note" rows="3" placeholder="内部备注（可选）">{{.Feedback.AdminNote}}</textarea>
+      <button type="submit">保存</button>
+    </form>
+
+    <section class="grid-2">
+      <div class="card">
+        <h2>反馈内容</h2>
+        <div class="feedback-content">{{.Feedback.Content}}</div>
+        {{if .Feedback.Contact}}
+        <p><strong>联系方式:</strong> {{.Feedback.Contact}}</p>
+        {{end}}
+      </div>
+      <div class="card">
+        <h2>上下文</h2>
+        <p><strong>反馈 ID:</strong> <code>{{.Feedback.FeedbackID}}</code></p>
+        <p><strong>版本:</strong> {{.Feedback.Release}} ({{.Feedback.Env}})</p>
+        <p><strong>用户:</strong> {{if .Feedback.UserID}}{{.Feedback.UserID}}{{else}}—{{end}}</p>
+        <p><strong>会话:</strong> {{if .Feedback.SessionID}}{{.Feedback.SessionID}}{{else}}—{{end}}</p>
+        <p><strong>页面/场景:</strong> {{.Feedback.Route}} / {{.Feedback.Scene}}</p>
+        <p><strong>语言:</strong> {{.Feedback.Language}}</p>
+        <p><strong>运行时:</strong> {{.Feedback.Runtime}}</p>
+        <p><strong>平台:</strong> {{.Feedback.DevicePlatform}}</p>
+        <p><strong>设备:</strong> {{.Feedback.DeviceModel}} / {{.Feedback.OSVersion}}</p>
+        <p><strong>网络:</strong> {{.Feedback.NetworkType}}</p>
+      </div>
+    </section>
+
+    {{if .Feedback.ExtraJSON}}
+    <section class="card">
+      <h2>扩展信息</h2>
+      <pre class="code-block">{{.Feedback.ExtraJSON}}</pre>
+    </section>
+    {{end}}
+
+    <p><a href="/reporting/admin/feedback">← 返回列表</a></p>
+  </main>
+</body>
+</html>

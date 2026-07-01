@@ -290,3 +290,155 @@
 - WebSocket 或实时连接失败
 - 远程资源清单与图片/音频加载失败
 - 会导致用户主流程中断的关键业务异常
+
+## 12. 行为打点（活跃 / 留存 / 漏斗）
+
+除错误上报外，EventHub 支持独立的行为打点管道，用于统计 DAU/MAU、留存 cohort 与漏斗转化率。
+
+### 12.1 批量打点上报
+
+`POST /reporting/v1/track/batch`
+
+鉴权与错误上报相同：`Authorization: Bearer <reportToken>`
+
+请求体：
+
+```json
+{
+  "clientSentAt": "2026-06-30T12:00:00Z",
+  "events": [
+    {
+      "eventId": "6f4c8dbe-f6df-4b38-9a1c-7cdb22ef0001",
+      "occurredAt": "2026-06-30T11:59:58Z",
+      "release": "0.1.3",
+      "env": "prod",
+      "eventName": "page_view",
+      "route": "home",
+      "funnelKey": "register_flow",
+      "stepKey": "home_view",
+      "extra": {}
+    }
+  ]
+}
+```
+
+成功响应格式与错误 batch 相同：
+
+```json
+{
+  "requestId": "req_20260630_0001",
+  "accepted": 1,
+  "rejected": 0
+}
+```
+
+### 12.2 字段说明
+
+| 字段 | 必填 | 说明 |
+|------|------|------|
+| `eventId` | 是 | 事件唯一 ID，建议 UUID |
+| `occurredAt` | 是 | 事件发生时间，ISO8601 |
+| `release` | 是 | 产品版本号 |
+| `env` | 是 | `prod` / `staging` / `dev` |
+| `eventName` | 是 | 打点名称，如 `page_view`、`tap_buy` |
+| `route` / `scene` / `module` | 否 | 页面或业务上下文 |
+| `funnelKey` / `stepKey` | 否 | 漏斗标识，须成对出现且与后台配置一致 |
+| `extra` | 否 | 扩展字段 |
+
+设备、语言等上下文字段与错误上报相同，可省略。
+
+### 12.3 活跃与留存口径
+
+- **活跃（DAU/MAU）**：当日/近 30 日有任意行为打点的去重 `user_id`
+- **留存**：以用户首次活跃日为 cohort，计算 D1/D7/D14/D30 回访率
+- **重要**：`reportToken` 中须携带 `user_id`，否则事件仅计入总量，不参与 DAU/留存/漏斗用户统计
+
+### 12.4 漏斗配置
+
+1. 在后台「漏斗转化」创建漏斗，配置 `funnelKey` 与有序步骤（`stepKey`）
+2. 前端打点时携带相同的 `funnelKey` + `stepKey`
+3. 后台按转化窗口（默认 24 小时）计算逐步转化率
+
+### 12.5 推荐首批打点
+
+- `app_launch` — 应用启动
+- `page_view` — 页面浏览
+- 核心按钮点击（如 `tap_submit_order`）
+- 关键业务完成（如 `register_success`、`payment_success`）
+
+### 12.6 后台查看
+
+- 活跃概览：`/reporting/admin/analytics`
+- 留存分析：`/reporting/admin/analytics/retention`
+- 漏斗转化：`/reporting/admin/funnels`
+
+## 13. 用户主动反馈
+
+App 内「意见反馈」入口：用户手写问题描述后提交。与自动错误上报不同，每条反馈独立存储，不做聚合。
+
+### 13.1 提交反馈
+
+`POST /reporting/v1/feedback`
+
+鉴权与错误上报相同：`Authorization: Bearer <reportToken>`
+
+请求体：
+
+```json
+{
+  "feedbackId": "6f4c8dbe-f6df-4b38-9a1c-7cdb22ef0001",
+  "submittedAt": "2026-07-01T12:00:00Z",
+  "release": "1.0.0",
+  "env": "prod",
+  "category": "bug",
+  "content": "点击支付按钮后没有任何反应，试了好几次都一样",
+  "contact": "user@example.com",
+  "route": "checkout",
+  "scene": "payment",
+  "language": "zh-CN",
+  "runtime": "webview",
+  "devicePlatform": "ios",
+  "extra": {
+    "screenshotUrl": "https://cdn.example.com/shot.png"
+  }
+}
+```
+
+成功响应：
+
+```json
+{
+  "requestId": "req_20260701_0001",
+  "feedbackId": "6f4c8dbe-f6df-4b38-9a1c-7cdb22ef0001"
+}
+```
+
+### 13.2 字段说明
+
+| 字段 | 必填 | 说明 |
+|------|------|------|
+| `feedbackId` | 是 | 反馈唯一 ID，建议 UUID |
+| `submittedAt` | 否 | 提交时间，ISO8601；缺省为服务端接收时间 |
+| `release` | 是 | 产品版本号 |
+| `env` | 是 | `prod` / `staging` / `dev` |
+| `category` | 否 | `bug` / `suggestion` / `question` / `other`，默认 `other` |
+| `content` | 是 | 用户手写描述，建议不超过 2000 字 |
+| `contact` | 否 | 用户留下的联系方式（邮箱/手机号等），最多 256 字符 |
+| `route` / `scene` | 否 | 当前页面或业务场景 |
+| `extra` | 否 | 扩展字段，如截图 URL |
+
+设备、语言等上下文字段与错误上报相同，可省略。`userId` 优先取自 `reportToken`。
+
+### 13.3 错误码
+
+| 错误码 | 含义 |
+|------|------|
+| `invalid_feedback` | 反馈结构非法或内容超长 |
+| `duplicate_feedback` | `feedbackId` 重复提交 |
+
+### 13.4 后台查看
+
+- 反馈列表：`/reporting/admin/feedback`
+- 反馈详情：`/reporting/admin/feedback/{id}`
+
+支持按项目、分类、状态、用户 ID 筛选；详情页可更新处理状态（`open` / `processing` / `resolved` / `closed`）并填写内部备注。

@@ -27,8 +27,9 @@ type Config struct {
 	AdminSessionSecret string
 	MaxBodyBytes       int64
 	MaxEventsPerBatch  int
-	MaxMessageLen      int
-	MaxStackLen        int
+	MaxMessageLen         int
+	MaxStackLen           int
+	MaxFeedbackContentLen int
 }
 
 func Load() (*Config, error) {
@@ -62,8 +63,9 @@ func Load() (*Config, error) {
 		AdminSessionSecret: getEnv("ADMIN_SESSION_SECRET", ""),
 		MaxBodyBytes:       maxBody,
 		MaxEventsPerBatch:  maxEvents,
-		MaxMessageLen:      512,
-		MaxStackLen:        8192,
+		MaxMessageLen:         512,
+		MaxStackLen:           8192,
+		MaxFeedbackContentLen: 2000,
 	}
 
 	if cfg.AdminPasswordHash == "" {

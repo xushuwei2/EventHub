@@ -104,37 +104,10 @@ const PRESETS = {
   },
 };
 
-function uuid() {
-  if (crypto.randomUUID) return crypto.randomUUID();
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === "x" ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
-
-function isoNow(offsetSec = 0) {
-  const d = new Date(Date.now() + offsetSec * 1000);
-  return d.toISOString();
-}
-
-function $(id) {
-  return document.getElementById(id);
-}
-
-function val(id) {
-  const el = $(id);
-  return el ? el.value.trim() : "";
-}
-
-function setVal(id, v) {
-  const el = $(id);
-  if (el) el.value = v ?? "";
-}
-
 function renderCategoryFields() {
   const cat = val("category");
   const container = $("category-fields");
+  if (!container) return;
   container.innerHTML = CATEGORY_FIELDS[cat] || "";
 }
 
@@ -230,64 +203,9 @@ function buildBatch(count) {
   };
 }
 
-async function signToken() {
-  const projectId = parseInt(val("project-id"), 10);
-  if (!projectId) {
-    showResponse({ error: "请先创建项目" }, true);
-    return null;
-  }
-  const opt = $("project-id").selectedOptions[0];
-  if (opt && opt.dataset.status === "disabled") {
-    showResponse({ error: "所选项目已停用" }, true);
-    return null;
-  }
-
-  const body = {
-    projectId,
-    userId: val("user-id"),
-    sessionId: val("session-id"),
-    roomId: val("room-id"),
-    release: val("release"),
-  };
-
-  const res = await fetch("/reporting/admin/test/sign-token", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const data = await res.json();
-  if (!res.ok) {
-    showResponse(data, true);
-    return null;
-  }
-  $("report-token").value = data.reportToken;
-  $("token-result").classList.remove("hidden");
-  return data.reportToken;
-}
-
-function showResponse(data, isError) {
-  const el = $("response-preview");
-  const accepted = data.accepted;
-  const rejected = data.rejected;
-  let summary = "";
-  if (accepted != null) {
-    const ok = accepted > 0 && (!rejected || rejected === 0);
-    summary = ok
-      ? `成功：accepted=${accepted}\n\n`
-      : `失败：accepted=${accepted}, rejected=${rejected}\n（事件未入库，请重启服务后重试或查看服务端日志）\n\n`;
-    isError = isError || !ok;
-  }
-  el.textContent = summary + JSON.stringify(data, null, 2);
-  el.classList.toggle("response-error", !!isError);
-  el.classList.remove("response-idle");
-}
-
 async function sendReport(count) {
-  let token = val("report-token");
-  if (!token) {
-    token = await signToken();
-    if (!token) return;
-  }
+  const token = await ensureToken();
+  if (!token) return;
 
   const payload = buildBatch(count);
   $("request-preview").textContent = JSON.stringify(payload, null, 2);
@@ -312,13 +230,12 @@ document.addEventListener("DOMContentLoaded", () => {
   renderCategoryFields();
   applyPreset("uncaught_js");
 
-  $("category").addEventListener("change", renderCategoryFields);
+  $("category")?.addEventListener("change", renderCategoryFields);
 
   document.querySelectorAll("[data-preset]").forEach((btn) => {
     btn.addEventListener("click", () => applyPreset(btn.dataset.preset));
   });
 
-  $("btn-sign-token").addEventListener("click", () => signToken());
-  $("btn-send").addEventListener("click", () => sendReport(1));
-  $("btn-send-batch").addEventListener("click", () => sendReport(3));
+  $("btn-send")?.addEventListener("click", () => sendReport(1));
+  $("btn-send-batch")?.addEventListener("click", () => sendReport(3));
 });

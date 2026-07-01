@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>用户反馈 - EventHub</title>
+  <link rel="stylesheet" href="/reporting/admin/static/style.css">
+</head>
+<body>
+  {{template "nav" .}}
+  <main class="container">
+    <h1>用户反馈</h1>
+    <p class="subtitle">App 用户主动提交的问题描述与建议，每条反馈独立记录。</p>
+
+    <form class="filters" method="get">
+      <select name="project">
+        <option value="">全部项目</option>
+        {{range .Projects}}
+        <option value="{{.ProjectKey}}" {{if eq $.Filter.ProjectKey .ProjectKey}}selected{{end}}>{{.ProjectKey}}</option>
+        {{end}}
+      </select>
+      <select name="category">
+        <option value="">全部分类</option>
+        <option value="bug" {{if eq .Filter.Category "bug"}}selected{{end}}>bug</option>
+        <option value="suggestion" {{if eq .Filter.Category "suggestion"}}selected{{end}}>suggestion</option>
+        <option value="question" {{if eq .Filter.Category "question"}}selected{{end}}>question</option>
+        <option value="other" {{if eq .Filter.Category "other"}}selected{{end}}>other</option>
+      </select>
+      <select name="status">
+        <option value="">全部状态</option>
+        <option value="open" {{if eq .Filter.Status "open"}}selected{{end}}>open</option>
+        <option value="processing" {{if eq .Filter.Status "processing"}}selected{{end}}>processing</option>
+        <option value="resolved" {{if eq .Filter.Status "resolved"}}selected{{end}}>resolved</option>
+        <option value="closed" {{if eq .Filter.Status "closed"}}selected{{end}}>closed</option>
+      </select>
+      <input type="text" name="userId" placeholder="用户 ID" value="{{.Filter.UserID}}">
+      <button type="submit">筛选</button>
+    </form>
+
+    <table>
+      <thead>
+        <tr>
+          <th>项目</th><th>状态</th><th>分类</th><th>内容摘要</th>
+          <th>用户</th><th>提交时间</th><th>版本</th><th>平台</th><th>联系方式</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Feedbacks}}
+        <tr>
+          <td><code>{{.ProjectKey}}</code></td>
+          <td><span class="badge status-{{.Status}}">{{.Status}}</span></td>
+          <td>{{.Category}}</td>
+          <td class="content-preview"><a href="/reporting/admin/feedback/{{.ID}}">{{.Content}}</a></td>
+          <td>{{if .UserID}}{{.UserID}}{{else}}—{{end}}</td>
+          <td>{{.SubmittedAt.Format "2006-01-02 15:04"}}</td>
+          <td>{{.Release}}</td>
+          <td>{{.DevicePlatform}}</td>
+          <td>{{if .Contact}}{{.Contact}}{{else}}—{{end}}</td>
+        </tr>
+        {{else}}
+        <tr><td colspan="9" class="empty">暂无反馈</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </main>
+</body>
+</html>

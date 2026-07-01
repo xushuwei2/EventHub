@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{if .Funnel}}编辑漏斗{{else}}新建漏斗{{end}} - EventHub</title>
+  <link rel="stylesheet" href="/reporting/admin/static/style.css">
+</head>
+<body>
+  {{template "nav" .}}
+  <main class="container">
+    <p><a href="/reporting/admin/funnels">← 返回漏斗列表</a></p>
+    <h1>{{if .Funnel}}编辑漏斗{{else}}新建漏斗{{end}}</h1>
+    {{if .Error}}<p class="error-msg">{{.Error}}</p>{{end}}
+
+    <div class="card form-card">
+      <form method="post" action="{{if .Funnel}}/reporting/admin/funnels/{{.Funnel.ID}}{{else}}/reporting/admin/funnels{{end}}">
+        {{if not .Funnel}}
+        <label>项目</label>
+        <select name="project_id" required>
+          {{range .Projects}}
+          <option value="{{.ID}}">{{.ProjectKey}}</option>
+          {{end}}
+        </select>
+        <label>funnelKey</label>
+        <input type="text" name="funnel_key" required placeholder="register_flow" pattern="[a-z][a-z0-9_-]*">
+        {{else}}
+        <label>funnelKey</label>
+        <input type="text" value="{{.Funnel.FunnelKey}}" disabled>
+        {{end}}
+
+        <label>漏斗名称</label>
+        <input type="text" name="funnel_name" required value="{{if .Funnel}}{{.Funnel.FunnelName}}{{end}}">
+
+        <label>转化窗口（小时）</label>
+        <input type="number" name="window_hours" min="1" max="720" value="{{if .Funnel}}{{.Funnel.WindowHours}}{{else}}24{{end}}">
+
+        <label>状态</label>
+        <select name="status">
+          <option value="active" {{if and .Funnel (eq .Funnel.Status "active")}}selected{{end}}{{if not .Funnel}}selected{{end}}>active</option>
+          <option value="disabled" {{if and .Funnel (eq .Funnel.Status "disabled")}}selected{{end}}>disabled</option>
+        </select>
+
+        <button type="submit" class="btn-primary">保存</button>
+      </form>
+    </div>
+  </main>
+</body>
+</html>

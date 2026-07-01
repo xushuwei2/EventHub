@@ -1,0 +1,7 @@
+{{define "test_tabs"}}
+<nav class="test-tabs">
+  <a href="/reporting/admin/test/errors" class="{{if eq .NavActive "test-errors"}}active{{end}}">错误上报</a>
+  <a href="/reporting/admin/test/track" class="{{if eq .NavActive "test-track"}}active{{end}}">行为打点</a>
+  <a href="/reporting/admin/test/feedback" class="{{if eq .NavActive "test-feedback"}}active{{end}}">反馈提交</a>
+</nav>
+{{end}}

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>错误上报测试 - EventHub</title>
+  <link rel="stylesheet" href="/reporting/admin/static/style.css">
+</head>
+<body>
+  {{template "nav" .}}
+  <main class="container">
+    <h1>错误上报测试</h1>
+    {{template "test_tabs" .}}
+    <p class="hint">模拟客户端批量上报错误事件：先签发 Token，再构造事件并发送。成功后可在 <a href="/reporting/admin/issues">问题列表</a> 查看。</p>
+
+    <div class="grid-2">
+      {{template "test_identity" .}}
+
+      <div class="card form-card form-card-wide">
+        <h2>事件内容</h2>
+        <label>快速预设</label>
+        <div class="preset-btns">
+          <button type="button" class="btn-secondary btn-sm" data-preset="uncaught_js">未捕获 JS</button>
+          <button type="button" class="btn-secondary btn-sm" data-preset="api_failure">API 500</button>
+          <button type="button" class="btn-secondary btn-sm" data-preset="ws_failure">WS 建连失败</button>
+          <button type="button" class="btn-secondary btn-sm" data-preset="asset_failure">资源加载失败</button>
+          <button type="button" class="btn-secondary btn-sm" data-preset="biz_error">业务异常</button>
+          <button type="button" class="btn-secondary btn-sm" data-preset="unhandled_promise">Promise 拒绝</button>
+        </div>
+
+        <label>category</label>
+        <select id="category">
+          <option value="uncaught_js">uncaught_js</option>
+          <option value="unhandled_promise">unhandled_promise</option>
+          <option value="api_failure">api_failure</option>
+          <option value="ws_failure">ws_failure</option>
+          <option value="asset_failure">asset_failure</option>
+          <option value="biz_error">biz_error</option>
+        </select>
+
+        <label>severity</label>
+        <select id="severity">
+          <option value="error" selected>error</option>
+          <option value="fatal">fatal</option>
+          <option value="warn">warn</option>
+        </select>
+
+        <label>message</label>
+        <input type="text" id="message" value="测试：未捕获的 JavaScript 错误">
+
+        <div id="category-fields" class="category-fields"></div>
+
+        <label>route / scene / module <span class="label-hint">（可空）</span></label>
+        <div class="inline-fields">
+          <input type="text" id="route" placeholder="checkout">
+          <input type="text" id="scene" placeholder="checkout">
+          <input type="text" id="module" placeholder="platform/api/order">
+        </div>
+
+        <label>stack <span class="label-hint">（可空）</span></label>
+        <textarea id="stack" rows="3" placeholder="Error: ...&#10;    at ..."></textarea>
+
+        <button type="button" class="btn-primary" id="btn-send">发送上报</button>
+        <button type="button" class="btn-secondary" id="btn-send-batch">发送 3 条同类事件</button>
+      </div>
+    </div>
+
+    {{template "test_response" .}}
+  </main>
+  <script src="/reporting/admin/static/test-common.js"></script>
+  <script src="/reporting/admin/static/test-errors.js"></script>
+</body>
+</html>

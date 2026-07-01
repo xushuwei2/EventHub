@@ -17,7 +17,10 @@ import (
 	"github.com/eventhub/eventhub/internal/store"
 )
 
-var ErrInvalidEvent = errors.New("invalid_event")
+var (
+	ErrInvalidEvent      = errors.New("invalid_event")
+	ErrDuplicateFeedback = errors.New("duplicate_feedback")
+)
 
 type RateLimiter struct {
 	mu      sync.Mutex

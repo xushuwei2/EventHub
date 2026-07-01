@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>漏斗转化 - EventHub</title>
+  <link rel="stylesheet" href="/reporting/admin/static/style.css">
+</head>
+<body>
+  {{template "nav" .}}
+  <main class="container">
+    <h1>漏斗转化</h1>
+    {{if .Error}}<p class="error-msg">{{.Error}}</p>{{end}}
+    {{if .Success}}<p class="success-msg">{{.Success}}</p>{{end}}
+
+    <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px">
+      <form class="filters" method="get" style="margin:0">
+        <select name="project">
+          <option value="">全部项目</option>
+          {{range .Projects}}
+          <option value="{{.ProjectKey}}" {{if eq $.ProjectKey .ProjectKey}}selected{{end}}>{{.ProjectKey}}</option>
+          {{end}}
+        </select>
+        <button type="submit">筛选</button>
+      </form>
+      <a href="/reporting/admin/funnels/new" class="btn-secondary">新建漏斗</a>
+    </div>
+
+    <div class="card">
+      <p class="hint">整体转化率为近 7 日内完成第一步到末步的用户比例。</p>
+      <table class="data-table">
+        <thead>
+          <tr><th>项目</th><th>漏斗</th><th>funnelKey</th><th>步骤数</th><th>近7日首步用户</th><th>整体转化率</th><th></th></tr>
+        </thead>
+        <tbody>
+          {{range .Funnels}}
+          <tr>
+            <td>{{.ProjectKey}}</td>
+            <td>{{.FunnelName}}</td>
+            <td><code>{{.FunnelKey}}</code></td>
+            <td>{{len .Steps}}</td>
+            <td>{{.Step1Users}}</td>
+            <td>{{printf "%.1f" .OverallRate}}%</td>
+            <td><a href="/reporting/admin/funnels/{{.ID}}">详情</a></td>
+          </tr>
+          {{else}}
+          <tr><td colspan="7">暂无漏斗，请先<a href="/reporting/admin/funnels/new">创建</a></td></tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </main>
+</body>
+</html>

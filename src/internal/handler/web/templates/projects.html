@@ -7,16 +7,7 @@
   <link rel="stylesheet" href="/reporting/admin/static/style.css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">EventHub</div>
-    <nav>
-      <a href="/reporting/admin/issues">问题列表</a>
-      <a href="/reporting/admin/projects">项目配置</a>
-      <a href="/reporting/admin/test">接入测试</a>
-      <a href="/reporting/admin/password">修改密码</a>
-      <a href="/reporting/admin/logout">退出</a>
-    </nav>
-  </header>
+  {{template "nav" .}}
   <main class="container">
     <h1>项目配置</h1>
     <p class="hint">配置接入应用的 <code>projectKey</code> 与后端签发 <code>reportToken</code> 用的共享密钥。</p>

@@ -1,0 +1,52 @@
+{{define "test_identity"}}
+<div class="card form-card form-card-wide">
+  <h2>项目与身份</h2>
+  <p class="hint">模拟业务后端签发 <code>reportToken</code>，密钥仅在服务端使用，不会暴露到浏览器。</p>
+
+  <label>项目</label>
+  <select id="project-id">
+    {{range .Projects}}
+    <option value="{{.ID}}" data-key="{{.ProjectKey}}" data-status="{{.Status}}">{{.ProjectKey}} ({{.Status}})</option>
+    {{else}}
+    <option value="">暂无项目</option>
+    {{end}}
+  </select>
+
+  <label>release</label>
+  <input type="text" id="release" value="0.1.0" placeholder="0.1.0">
+
+  <label>env</label>
+  <select id="env">
+    <option value="dev" selected>dev</option>
+    <option value="staging">staging</option>
+    <option value="prod">prod</option>
+  </select>
+
+  <label>userId <span class="label-hint">（可空）</span></label>
+  <input type="text" id="user-id" value="test_user_001" placeholder="user_123">
+
+  <label>sessionId <span class="label-hint">（可空）</span></label>
+  <input type="text" id="session-id" value="sess_test_001" placeholder="sess_001">
+
+  <label>roomId <span class="label-hint">（可空）</span></label>
+  <input type="text" id="room-id" placeholder="room_abc">
+
+  <label>language / runtime / devicePlatform</label>
+  <div class="inline-fields">
+    <input type="text" id="language" value="zh-CN" placeholder="zh-CN">
+    <input type="text" id="runtime" value="web" placeholder="web">
+    <select id="device-platform">
+      <option value="">（省略）</option>
+      <option value="android" selected>android</option>
+      <option value="ios">ios</option>
+      <option value="unknown">unknown</option>
+    </select>
+  </div>
+
+  <button type="button" class="btn-primary" id="btn-sign-token">模拟业务后端签发 Token</button>
+  <div id="token-result" class="token-result hidden">
+    <label>reportToken</label>
+    <textarea id="report-token" rows="3" readonly></textarea>
+  </div>
+</div>
+{{end}}

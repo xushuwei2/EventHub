@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>留存分析 - EventHub</title>
+  <link rel="stylesheet" href="/reporting/admin/static/style.css">
+</head>
+<body>
+  {{template "nav" .}}
+  <main class="container">
+    <h1>留存分析</h1>
+    <p class="hint">以用户首次活跃日为 cohort，计算 D1/D7/D14/D30 回访率（百分比）。未到统计日的列显示为 —。</p>
+
+    <form class="filters" method="get">
+      <select name="project">
+        {{range .Projects}}
+        <option value="{{.ProjectKey}}" {{if eq $.ProjectKey .ProjectKey}}selected{{end}}>{{.ProjectKey}}</option>
+        {{end}}
+      </select>
+      <button type="submit">切换项目</button>
+    </form>
+
+    <div class="card" style="margin-top:16px">
+      <table class="data-table">
+        <thead>
+          <tr><th>首次活跃日</th><th>cohort 人数</th><th>D1</th><th>D7</th><th>D14</th><th>D30</th></tr>
+        </thead>
+        <tbody>
+          {{range .Rows}}
+          <tr>
+            <td>{{.CohortDate}}</td>
+            <td>{{.CohortSize}}</td>
+            <td>{{if lt .D1 0}}—{{else}}{{printf "%.1f" .D1}}%{{end}}</td>
+            <td>{{if lt .D7 0}}—{{else}}{{printf "%.1f" .D7}}%{{end}}</td>
+            <td>{{if lt .D14 0}}—{{else}}{{printf "%.1f" .D14}}%{{end}}</td>
+            <td>{{if lt .D30 0}}—{{else}}{{printf "%.1f" .D30}}%{{end}}</td>
+          </tr>
+          {{else}}
+          <tr><td colspan="6">暂无留存数据</td></tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </main>
+</body>
+</html>

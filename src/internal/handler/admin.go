@@ -32,28 +32,34 @@ const adminCookie = "eventhub_admin_session"
 var projectKeyPattern = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,63}$`)
 
 type AdminHandler struct {
-	cfg      *config.Config
-	issues   *store.IssueStore
-	projects *store.ProjectStore
-	loginRL  *service.RateLimiter
-	tmpl     *template.Template
+	cfg       *config.Config
+	issues    *store.IssueStore
+	projects  *store.ProjectStore
+	analytics *store.AnalyticsStore
+	funnels   *store.FunnelStore
+	feedback  *store.FeedbackStore
+	loginRL   *service.RateLimiter
+	tmpl      *template.Template
 }
 
-func NewAdminHandler(cfg *config.Config, issues *store.IssueStore, projects *store.ProjectStore) (*AdminHandler, error) {
+func NewAdminHandler(cfg *config.Config, issues *store.IssueStore, projects *store.ProjectStore, analytics *store.AnalyticsStore, funnels *store.FunnelStore, feedback *store.FeedbackStore) (*AdminHandler, error) {
 	sub, err := fs.Sub(webFS, "web")
 	if err != nil {
 		return nil, err
 	}
-	tmpl, err := template.ParseFS(sub, "templates/*.html")
+	tmpl, err := template.ParseFS(sub, "templates/*.html", "templates/partials/*.html")
 	if err != nil {
 		return nil, err
 	}
 	return &AdminHandler{
-		cfg:      cfg,
-		issues:   issues,
-		projects: projects,
-		loginRL:  service.NewRateLimiter(5, 15*time.Minute),
-		tmpl:     tmpl,
+		cfg:       cfg,
+		issues:    issues,
+		projects:  projects,
+		analytics: analytics,
+		funnels:   funnels,
+		feedback:  feedback,
+		loginRL:   service.NewRateLimiter(5, 15*time.Minute),
+		tmpl:      tmpl,
 	}, nil
 }
 
@@ -440,12 +446,28 @@ func generateTokenSecret() string {
 }
 
 func (h *AdminHandler) TestPage(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "/reporting/admin/test/errors", http.StatusSeeOther)
+}
+
+func (h *AdminHandler) TestErrorsPage(w http.ResponseWriter, r *http.Request) {
+	h.renderTestPage(w, r, "test_errors.html")
+}
+
+func (h *AdminHandler) TestTrackPage(w http.ResponseWriter, r *http.Request) {
+	h.renderTestPage(w, r, "test_track.html")
+}
+
+func (h *AdminHandler) TestFeedbackPage(w http.ResponseWriter, r *http.Request) {
+	h.renderTestPage(w, r, "test_feedback.html")
+}
+
+func (h *AdminHandler) renderTestPage(w http.ResponseWriter, r *http.Request, tmpl string) {
 	projects, err := h.projects.ListAll(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	h.render(w, "test.html", map[string]interface{}{
+	h.render(w, tmpl, map[string]interface{}{
 		"Projects": projects,
 	})
 }
@@ -497,7 +519,31 @@ func (h *AdminHandler) SignTestToken(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"reportToken": token})
 }
 
+var templateNavActive = map[string]string{
+	"issues.html":              "issues",
+	"issue_detail.html":        "issues",
+	"feedback_list.html":       "feedback",
+	"feedback_detail.html":     "feedback",
+	"analytics_overview.html":  "analytics",
+	"analytics_retention.html": "retention",
+	"funnels.html":             "funnels",
+	"funnel_detail.html":       "funnels",
+	"funnel_edit.html":         "funnels",
+	"projects.html":            "projects",
+	"project_edit.html":        "projects",
+	"test_errors.html":         "test-errors",
+	"test_track.html":          "test-track",
+	"test_feedback.html":       "test-feedback",
+	"change_password.html":     "password",
+}
+
 func (h *AdminHandler) render(w http.ResponseWriter, name string, data map[string]interface{}) {
+	if data == nil {
+		data = make(map[string]interface{})
+	}
+	if active, ok := templateNavActive[name]; ok {
+		data["NavActive"] = active
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := h.tmpl.ExecuteTemplate(w, name, data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

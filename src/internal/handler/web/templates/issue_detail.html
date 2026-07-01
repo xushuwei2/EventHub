@@ -7,16 +7,7 @@
   <link rel="stylesheet" href="/reporting/admin/static/style.css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">EventHub</div>
-    <nav>
-      <a href="/reporting/admin/issues">问题列表</a>
-      <a href="/reporting/admin/projects">项目配置</a>
-      <a href="/reporting/admin/test">接入测试</a>
-      <a href="/reporting/admin/password">修改密码</a>
-      <a href="/reporting/admin/logout">退出</a>
-    </nav>
-  </header>
+  {{template "nav" .}}
   <main class="container">
     <div class="detail-header">
       <h1>{{.Issue.Title}}</h1>
