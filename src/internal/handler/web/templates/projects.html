@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>项目配置 - EventHub</title>
+  <link rel="stylesheet" href="/reporting/admin/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">EventHub</div>
+    <nav>
+      <a href="/reporting/admin/issues">问题列表</a>
+      <a href="/reporting/admin/projects">项目配置</a>
+      <a href="/reporting/admin/test">接入测试</a>
+      <a href="/reporting/admin/password">修改密码</a>
+      <a href="/reporting/admin/logout">退出</a>
+    </nav>
+  </header>
+  <main class="container">
+    <h1>项目配置</h1>
+    <p class="hint">配置接入应用的 <code>projectKey</code> 与后端签发 <code>reportToken</code> 用的共享密钥。</p>
+
+    {{if .Error}}<div class="alert">{{.Error}}</div>{{end}}
+    {{if .Success}}<div class="alert success">{{.Success}}</div>{{end}}
+
+    <table>
+      <thead>
+        <tr>
+          <th>项目 Key</th>
+          <th>状态</th>
+          <th>Token 密钥</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Projects}}
+        <tr>
+          <td><code>{{.ProjectKey}}</code></td>
+          <td><span class="badge status-{{.Status}}">{{.Status}}</span></td>
+          <td class="secret-cell">
+            <code>{{.TrustedTokenSecret}}</code>
+            <button type="button" class="btn-secondary btn-sm" data-copy="{{.TrustedTokenSecret}}">复制</button>
+          </td>
+          <td><a href="/reporting/admin/projects/{{.ID}}">编辑</a></td>
+        </tr>
+        {{else}}
+        <tr><td colspan="4" class="empty">暂无项目，请在下方创建</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+
+    <div class="card form-card form-card-wide">
+      <h2>新建项目</h2>
+      <form method="post" action="/reporting/admin/projects">
+        <label>项目 Key <span class="label-hint">（小写字母开头，仅含 a-z、0-9、_、-）</span></label>
+        <input type="text" name="project_key" required pattern="[a-z][a-z0-9_-]*" maxlength="64" placeholder="my-app">
+
+        <label>Token 密钥 <span class="label-hint">（留空则自动生成，也可点随机生成）</span></label>
+        <div class="secret-input-group">
+          <input type="text" id="create-token-secret" name="trusted_token_secret" minlength="8" maxlength="256" placeholder="业务后端签发 reportToken 用">
+          <button type="button" class="btn-secondary" data-random-secret="create-token-secret">随机</button>
+          <button type="button" class="btn-secondary" data-copy-from="create-token-secret">复制</button>
+        </div>
+
+        <label>状态</label>
+        <select name="status">
+          <option value="active" selected>active</option>
+          <option value="disabled">disabled</option>
+        </select>
+
+        <button type="submit" class="btn-primary">创建项目</button>
+      </form>
+    </div>
+  </main>
+  <script src="/reporting/admin/static/admin.js"></script>
+</body>
+</html>

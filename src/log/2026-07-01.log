@@ -1,0 +1,4 @@
+[2026-07-01 13:35:08] [INFO] [main.go:105] EventHub listening on :6901
+[2026-07-01 13:35:08] [FATAL] [main.go:107] listen: listen tcp :6901: bind: Only one usage of each socket address (protocol/network address/port) is normally permitted.
+[2026-07-01 13:37:04] [INFO] [main.go:105] EventHub listening on :6901
+[2026-07-01 13:37:04] [FATAL] [main.go:107] listen: listen tcp :6901: bind: Only one usage of each socket address (protocol/network address/port) is normally permitted.

@@ -1,0 +1,5 @@
+.temp/
+obj/
+.dist/
+.run/
+.env

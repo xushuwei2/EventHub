@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "编译并运行 EventHub (Debug)",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/src/cmd/eventhub",
+      "cwd": "${workspaceFolder}/.run",
+      "envFile": "${workspaceFolder}/.run/config/.env",
+      "preLaunchTask": "build-debug"
+    }
+  ]
+}

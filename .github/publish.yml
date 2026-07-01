@@ -1,0 +1,56 @@
+name: Publish Release
+
+on:
+  push:
+    paths:
+      - 'src/version.go'
+    branches:
+      - main
+      - master
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version
+        id: ver
+        run: |
+          VERSION=$(grep 'Version' src/version.go | sed 's/.*"\(.*\)".*/\1/')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Check if tag exists
+        id: tag
+        run: |
+          if git rev-parse "v${{ steps.ver.outputs.version }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Go
+        if: steps.tag.outputs.exists == 'false'
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Build release binaries
+        if: steps.tag.outputs.exists == 'false'
+        run: |
+          cd src
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s -w" -o ../eventhub-linux-amd64 ./cmd/eventhub
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s -w" -o ../eventhub-windows-amd64.exe ./cmd/eventhub
+
+      - name: Create GitHub Release
+        if: steps.tag.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.version }}
+          name: EventHub v${{ steps.ver.outputs.version }}
+          files: |
+            eventhub-linux-amd64
+            eventhub-windows-amd64.exe
+          generate_release_notes: true

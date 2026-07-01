@@ -1,0 +1,10 @@
+{
+  "files.exclude": {
+    "**/.temp": true,
+    "**/obj": true,
+    "**/.dist": true
+  },
+  "go.goroot": "",
+  "go.gopath": "",
+  "go.useLanguageServer": true
+}

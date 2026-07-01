@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>问题列表 - EventHub</title>
+  <link rel="stylesheet" href="/reporting/admin/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">EventHub</div>
+    <nav>
+      <a href="/reporting/admin/issues">问题列表</a>
+      <a href="/reporting/admin/projects">项目配置</a>
+      <a href="/reporting/admin/test">接入测试</a>
+      <a href="/reporting/admin/password">修改密码</a>
+      <a href="/reporting/admin/logout">退出</a>
+    </nav>
+  </header>
+  <main class="container">
+    <h1>问题列表</h1>
+
+    <form class="filters" method="get">
+      <select name="project">
+        <option value="">全部项目</option>
+        {{range .Projects}}
+        <option value="{{.ProjectKey}}" {{if eq $.Filter.ProjectKey .ProjectKey}}selected{{end}}>{{.ProjectKey}}</option>
+        {{end}}
+      </select>
+      <input type="text" name="release" placeholder="版本" value="{{.Filter.Release}}">
+      <select name="category">
+        <option value="">全部分类</option>
+        <option value="uncaught_js" {{if eq .Filter.Category "uncaught_js"}}selected{{end}}>uncaught_js</option>
+        <option value="unhandled_promise" {{if eq .Filter.Category "unhandled_promise"}}selected{{end}}>unhandled_promise</option>
+        <option value="api_failure" {{if eq .Filter.Category "api_failure"}}selected{{end}}>api_failure</option>
+        <option value="ws_failure" {{if eq .Filter.Category "ws_failure"}}selected{{end}}>ws_failure</option>
+        <option value="asset_failure" {{if eq .Filter.Category "asset_failure"}}selected{{end}}>asset_failure</option>
+        <option value="biz_error" {{if eq .Filter.Category "biz_error"}}selected{{end}}>biz_error</option>
+      </select>
+      <select name="status">
+        <option value="">全部状态</option>
+        <option value="open" {{if eq .Filter.Status "open"}}selected{{end}}>open</option>
+        <option value="resolved" {{if eq .Filter.Status "resolved"}}selected{{end}}>resolved</option>
+        <option value="ignored" {{if eq .Filter.Status "ignored"}}selected{{end}}>ignored</option>
+      </select>
+      <input type="text" name="language" placeholder="语言" value="{{.Filter.Language}}">
+      <input type="text" name="platform" placeholder="平台" value="{{.Filter.Platform}}">
+      <input type="text" name="bizCode" placeholder="bizCode" value="{{.Filter.BizCode}}">
+      <button type="submit">筛选</button>
+    </form>
+
+    <table>
+      <thead>
+        <tr>
+          <th>项目</th><th>状态</th><th>分类</th><th>标题</th>
+          <th>首见</th><th>最近</th><th>总数</th><th>24h</th>
+          <th>版本</th><th>语言</th><th>平台</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Issues}}
+        <tr>
+          <td><code>{{.ProjectKey}}</code></td>
+          <td><span class="badge status-{{.Status}}">{{.Status}}</span></td>
+          <td>{{.Category}}</td>
+          <td><a href="/reporting/admin/issues/{{.ID}}">{{.Title}}</a></td>
+          <td>{{.FirstSeenAt.Format "2006-01-02 15:04"}}</td>
+          <td>{{.LastSeenAt.Format "2006-01-02 15:04"}}</td>
+          <td>{{.TotalCount}}</td>
+          <td>{{.Last24hCount}}</td>
+          <td>{{.LastRelease}}</td>
+          <td>{{.LastLanguage}}</td>
+          <td>{{.LastPlatform}}</td>
+        </tr>
+        {{else}}
+        <tr><td colspan="11" class="empty">暂无数据</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </main>
+</body>
+</html>

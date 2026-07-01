@@ -1,0 +1,13 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build-debug",
+      "type": "shell",
+      "command": "pwsh",
+      "args": ["-File", "${workspaceFolder}/script/build.ps1"],
+      "group": "build",
+      "problemMatcher": ["$go"]
+    }
+  ]
+}

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>接入测试 - EventHub</title>
+  <link rel="stylesheet" href="/reporting/admin/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">EventHub</div>
+    <nav>
+      <a href="/reporting/admin/issues">问题列表</a>
+      <a href="/reporting/admin/projects">项目配置</a>
+      <a href="/reporting/admin/test">接入测试</a>
+      <a href="/reporting/admin/password">修改密码</a>
+      <a href="/reporting/admin/logout">退出</a>
+    </nav>
+  </header>
+  <main class="container">
+    <h1>接入测试</h1>
+    <p class="hint">模拟外部应用完整上报流程：业务后端签发 <code>reportToken</code> → 客户端批量上报事件。密钥仅在服务端用于签发，不会暴露到浏览器。</p>
+
+    <div class="grid-2">
+      <div class="card form-card form-card-wide">
+        <h2>1. 项目与身份</h2>
+        <label>项目</label>
+        <select id="project-id">
+          {{range .Projects}}
+          <option value="{{.ID}}" data-key="{{.ProjectKey}}" data-status="{{.Status}}">{{.ProjectKey}} ({{.Status}})</option>
+          {{else}}
+          <option value="">暂无项目</option>
+          {{end}}
+        </select>
+
+        <label>release</label>
+        <input type="text" id="release" value="0.1.0" placeholder="0.1.0">
+
+        <label>env</label>
+        <select id="env">
+          <option value="dev" selected>dev</option>
+          <option value="staging">staging</option>
+          <option value="prod">prod</option>
+        </select>
+
+        <label>userId <span class="label-hint">（可空）</span></label>
+        <input type="text" id="user-id" value="test_user_001" placeholder="user_123">
+
+        <label>sessionId <span class="label-hint">（可空）</span></label>
+        <input type="text" id="session-id" value="sess_test_001" placeholder="sess_001">
+
+        <label>roomId <span class="label-hint">（可空）</span></label>
+        <input type="text" id="room-id" placeholder="room_abc">
+
+        <button type="button" class="btn-primary" id="btn-sign-token">模拟业务后端签发 Token</button>
+        <div id="token-result" class="token-result hidden">
+          <label>reportToken</label>
+          <textarea id="report-token" rows="3" readonly></textarea>
+        </div>
+      </div>
+
+      <div class="card form-card form-card-wide">
+        <h2>2. 事件内容</h2>
+        <label>快速预设</label>
+        <div class="preset-btns">
+          <button type="button" class="btn-secondary btn-sm" data-preset="uncaught_js">未捕获 JS</button>
+          <button type="button" class="btn-secondary btn-sm" data-preset="api_failure">API 500</button>
+          <button type="button" class="btn-secondary btn-sm" data-preset="ws_failure">WS 建连失败</button>
+          <button type="button" class="btn-secondary btn-sm" data-preset="asset_failure">资源加载失败</button>
+          <button type="button" class="btn-secondary btn-sm" data-preset="biz_error">业务异常</button>
+          <button type="button" class="btn-secondary btn-sm" data-preset="unhandled_promise">Promise 拒绝</button>
+        </div>
+
+        <label>category</label>
+        <select id="category">
+          <option value="uncaught_js">uncaught_js</option>
+          <option value="unhandled_promise">unhandled_promise</option>
+          <option value="api_failure">api_failure</option>
+          <option value="ws_failure">ws_failure</option>
+          <option value="asset_failure">asset_failure</option>
+          <option value="biz_error">biz_error</option>
+        </select>
+
+        <label>severity</label>
+        <select id="severity">
+          <option value="error" selected>error</option>
+          <option value="fatal">fatal</option>
+          <option value="warn">warn</option>
+        </select>
+
+        <label>message</label>
+        <input type="text" id="message" value="测试：未捕获的 JavaScript 错误">
+
+        <div id="category-fields" class="category-fields"></div>
+
+        <label>route / scene / module <span class="label-hint">（可空）</span></label>
+        <div class="inline-fields">
+          <input type="text" id="route" placeholder="checkout">
+          <input type="text" id="scene" placeholder="checkout">
+          <input type="text" id="module" placeholder="platform/api/order">
+        </div>
+
+        <label>stack <span class="label-hint">（可空）</span></label>
+        <textarea id="stack" rows="3" placeholder="Error: ...&#10;    at ..."></textarea>
+
+        <label>language / runtime / devicePlatform</label>
+        <div class="inline-fields">
+          <input type="text" id="language" value="zh-CN" placeholder="zh-CN">
+          <input type="text" id="runtime" value="web" placeholder="web">
+          <select id="device-platform">
+            <option value="">（省略）</option>
+            <option value="android" selected>android</option>
+            <option value="ios">ios</option>
+            <option value="unknown">unknown</option>
+          </select>
+        </div>
+
+        <button type="button" class="btn-primary" id="btn-send">发送上报</button>
+        <button type="button" class="btn-secondary" id="btn-send-batch">发送 3 条同类事件</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>3. 请求与响应</h2>
+      <label>请求体预览</label>
+      <pre id="request-preview" class="code-block">（点击「发送上报」后显示）</pre>
+      <label>响应</label>
+      <pre id="response-preview" class="code-block response-idle">等待发送…</pre>
+      <p class="hint">上报成功后可在 <a href="/reporting/admin/issues">问题列表</a> 查看聚合结果。</p>
+    </div>
+  </main>
+  <script src="/reporting/admin/static/test.js"></script>
+</body>
+</html>

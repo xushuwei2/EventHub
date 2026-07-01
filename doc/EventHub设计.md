@@ -23,7 +23,7 @@
   - 关键业务异常
 - 支持按错误指纹聚合，并查看最近版本、语言、平台、接口、资源路径等维度。
 - 支持多产品接入，按 `projectKey` 隔离数据。
-- 提供最小可用后台页面，支持登录、列表筛选、详情查看、状态流转。
+- 提供最小可用后台页面，支持登录、项目配置、列表筛选、详情查看、状态流转。
 - 提供清晰的接入接口文档，便于其他产品复用。
 
 ### 2.2 非目标
@@ -73,14 +73,11 @@
 
 ### 4.1 项目注册
 
-`EventHub` 不是某个业务项目的专用服务，而是多租户的“项目级接入”模型。每个接入产品至少需要配置：
+`EventHub` 不是某个业务项目的专用服务，而是多租户的“项目级接入”模型。每个接入产品通过后台「项目配置」页面注册，至少需要：
 
-- `projectKey`：前端公开项目标识，唯一。
-- `projectName`：后台展示名称。
+- `projectKey`：前端公开项目标识，唯一；小写字母开头，仅含 `a-z`、`0-9`、`_`、`-`。
 - `status`：`active` / `disabled`。
-- `trustedTokenSecret`：产品后端签发 `reportToken` 用的共享密钥。
-- `anonymousIngestEnabled`：是否允许匿名上报。
-- `sampleRateConfig`：可选，后续用于降采样。
+- `trustedTokenSecret`：产品后端签发 `reportToken` 用的共享密钥；可在后台随机生成。
 
 其中：
 
@@ -89,7 +86,7 @@
 
 ### 4.2 数据隔离
 
-所有 issue、event、统计数据都按项目隔离，后台页面首层筛选需支持按项目过滤。  
+所有 issue、event、统计数据都按项目隔离，后台页面首层筛选需支持按 `projectKey` 过滤。  
 聚合指纹同样带 `projectKey` 维度，避免不同产品同文案错误被错误合并。
 
 ## 5. 前端采集设计
@@ -129,22 +126,11 @@
 
 ## 6. 身份与鉴权
 
-### 6.1 匿名模式
+所有上报均需携带业务后端签发的 `reportToken`（`Authorization: Bearer <reportToken>`）。
 
-用于登录前、启动期、资源加载期等无法拿到业务会话的场景。
-
-- 请求头带 `X-Project-Key`
-- 不信任客户端上送的 `userId`、`roomId` 等业务身份字段
-- 服务端只把这些字段当“参考字段”，不作为可信身份
-- 匿名模式限流最严
-
-### 6.2 可信模式
-
-用于登录后、进入业务态后的错误上报。
-
-- 请求头带 `Authorization: Bearer <reportToken>`
-- `reportToken` 由产品业务后端本地签发
-- 建议采用 HMAC JWT
+- 服务端信任 token 内的 `project_key`、`user_id`、`session_id`、`room_id` 等身份字段
+- 登录前错误也需由业务后端签发 token 后上报
+- `reportToken` 由产品业务后端本地签发，建议采用 HMAC JWT
 
 推荐 claims：
 
@@ -153,9 +139,10 @@
 - `session_id`
 - `room_id`（可空）
 - `release`
-- `exp`
 
-可信模式的优势：
+`reportToken` 不设过期时间，服务端仅校验签名与 `project_key`。
+
+设计优势：
 
 - 不依赖 `EventHub` 在线签 token
 - 避免把 `EventHub` 变成登录链路前置依赖
@@ -274,9 +261,9 @@
 
 - `id`
 - `project_key`
-- `project_name`
+- `project_name`（内部字段，与 `project_key` 同步，不在后台展示）
 - `status`
-- `anonymous_ingest_enabled`
+- `trusted_token_secret`
 - `created_at`
 - `updated_at`
 
@@ -395,7 +382,7 @@
 
 展示列：
 
-- 项目
+- 项目 Key
 - 状态
 - 分类
 - 标题
@@ -409,7 +396,7 @@
 
 筛选项：
 
-- 项目
+- 项目 Key
 - 版本
 - 分类
 - 状态
@@ -437,6 +424,23 @@
 - `resolved`
 - `ignored`
 
+### 10.5 项目配置页
+
+路径：`/reporting/admin/projects`
+
+功能：
+
+- 查看所有已注册项目及其 `projectKey`、`status`、`trustedTokenSecret`
+- 新建项目：填写 `projectKey`，配置或随机生成 `trustedTokenSecret`
+- 编辑项目：修改 `status`、`trustedTokenSecret`（`projectKey` 不可改）
+- 复制密钥到剪贴板
+
+### 10.6 修改密码
+
+路径：`/reporting/admin/password`
+
+管理员可在页面内修改后台登录密码（写入 `.env` 中的 `ADMIN_PASSWORD_HASH`）。
+
 ## 11. 安全与防滥用
 
 ### 11.1 后台登录
@@ -459,7 +463,6 @@
 - 限制 body 大小
 - 限制单批事件数量
 - 限制 message / stack / extra 长度
-- 匿名模式按 `IP + projectKey` 限流
 - 登录页按 IP 限制失败次数
 - 事件 `eventId` 去重
 - 自动脱敏：
@@ -491,12 +494,7 @@
 - `ADMIN_PASSWORD_HASH`
 - `ADMIN_SESSION_SECRET`
 
-项目级共享密钥可放在：
-
-- 数据库注册表扩展字段
-- 或部署配置中心
-
-首版推荐集中配置在服务端项目注册配置中，不向前端暴露。
+项目级 `trustedTokenSecret` 通过后台「项目配置」页面写入 `report_project` 表，不通过环境变量配置，也不向前端暴露。
 
 ### 12.3 与业务系统的关系
 

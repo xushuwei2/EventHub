@@ -12,12 +12,20 @@
 
 ### 2.1 项目注册
 
-接入前需要在 `EventHub` 创建项目配置，最少提供：
+在 EventHub 后台 **项目配置** 页面创建项目：
 
-- `projectKey`
-- `projectName`
-- 是否允许匿名上报
-- 后端签发 `reportToken` 用的共享密钥
+- 地址：`/reporting/admin/projects`（需先登录后台）
+- 路径示例：`https://<域名>/reporting/admin/projects`
+
+每个项目需配置：
+
+| 字段 | 说明 |
+|------|------|
+| `projectKey` | 项目唯一标识。小写字母开头，仅含 `a-z`、`0-9`、`_`、`-`；创建后不可修改 |
+| `trustedTokenSecret` | 业务后端签发 `reportToken` 用的共享密钥。可手动填写、随机生成，或留空由服务端自动生成 |
+| `status` | `active` / `disabled`，停用后该项目上报会被拒绝 |
+
+创建或修改密钥后，请将 `trustedTokenSecret` 同步到业务后端配置。
 
 ### 2.2 前端配置
 
@@ -33,34 +41,9 @@
 业务后端需要持有该项目的 `trustedTokenSecret`，用于本地签发 `reportToken`。  
 `EventHub` 不会参与登录链路上的 token 生成。
 
-## 3. 上报模式
+## 3. 上报认证
 
-### 3.1 匿名上报
-
-适用场景：
-
-- 启动期错误
-- 资源加载失败
-- 登录前错误
-
-请求头：
-
-- `Content-Type: application/json`
-- `X-Project-Key: <projectKey>`
-
-特点：
-
-- 不依赖业务登录
-- 限流更严格
-- 服务端不信任 `userId`、`roomId` 等身份字段
-
-### 3.2 可信上报
-
-适用场景：
-
-- 登录后错误
-- 业务会话内错误
-- 关键业务错误
+所有上报均需携带业务后端签发的 `reportToken`。
 
 请求头：
 
@@ -71,6 +54,7 @@
 
 - 服务端信任 token 内的项目与会话身份
 - 可关联用户、业务会话、版本
+- 登录前错误也需由业务后端签发 token 后上报
 
 ## 4. `reportToken` 规范
 
@@ -87,10 +71,10 @@
 - `session_id`：业务会话 ID，可空
 - `room_id`：房间 ID，可空；没有房间概念的业务可省略
 - `release`：当前版本号
-- `exp`：过期时间，建议 10-30 分钟
 
 ### 4.3 约束
 
+- `reportToken` 不设过期时间，服务端仅校验签名与 `project_key`
 - `reportToken` 只用于错误上报
 - 不可复用业务登录 token
 - 不可在前端内置签名密钥
@@ -100,6 +84,11 @@
 ### 5.1 批量事件上报
 
 `POST /reporting/v1/events/batch`
+
+请求头：
+
+- `Content-Type: application/json`
+- `Authorization: Bearer <reportToken>`
 
 说明：
 
@@ -265,24 +254,25 @@
 |------|------|
 | `invalid_project` | `projectKey` 不存在或已停用 |
 | `invalid_token` | `reportToken` 无效 |
-| `token_expired` | `reportToken` 已过期 |
 | `payload_too_large` | 请求体过大 |
 | `too_many_events` | 单批事件过多 |
-| `rate_limited` | 触发限流 |
 | `invalid_event` | 事件结构非法 |
 
 ## 9. 推荐接入步骤
 
-1. 注册项目并拿到 `projectKey`
-2. 业务后端接入 `reportToken` 本地签发
-3. 前端实现统一 `errorReporter`
-4. 先接入 `window.onerror`、`unhandledrejection`
-5. 再接入 API / WS / 资源失败
-6. 最后给关键业务异常补稳定 `bizCode`
-7. 联调后台 issue 聚合与详情展示
+1. 在后台「项目配置」创建项目，记录 `projectKey` 与 `trustedTokenSecret`
+2. 将 `trustedTokenSecret` 配置到业务后端
+3. 业务后端接入 `reportToken` 本地签发
+4. 前端实现统一 `errorReporter`，上报时携带 `reportToken`
+5. 先接入 `window.onerror`、`unhandledrejection`
+6. 再接入 API / WS / 资源失败
+7. 最后给关键业务异常补稳定 `bizCode`
+8. 联调后台 issue 聚合与详情展示
 
 ## 10. 接入验收清单
 
+- 后台能创建项目并获取 `trustedTokenSecret`
+- 业务后端能签发有效 `reportToken`
 - 能上报 1 条未捕获错误
 - 能上报 1 条 API 500
 - 能上报 1 条 WS 建连失败
