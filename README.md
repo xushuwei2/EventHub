@@ -1,13 +1,13 @@
 # EventHub
 
-独立前端错误采集服务，统一接收、清洗、聚合、查询多产品前端错误，并提供简易后台管理页面。
+独立前端错误与行为采集服务，统一接收、清洗、聚合多产品前端事件，并提供简易后台管理页面。
 
 ## 功能
 
 - 批量事件上报：`POST /reporting/v1/events/batch`
 - 可信上报（`Authorization: Bearer <reportToken>`）
-- 按指纹聚合 issue，支持版本/语言/平台等维度统计
-- 后台登录、项目配置、问题列表、详情、状态流转（open / resolved / ignored）
+- 按指纹聚合错误事件入库
+- 后台登录、项目配置、用户反馈、行为分析与漏斗转化
 
 详细设计见 [doc/EventHub设计.md](doc/EventHub设计.md)，接入说明见 [doc/EventHub接入接口.md](doc/EventHub接入接口.md)。
 

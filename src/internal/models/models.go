@@ -10,67 +10,6 @@ type Project struct {
 	TrustedTokenSecret string
 }
 
-type Issue struct {
-	ID                  int64
-	ProjectID           int64
-	ProjectKey          string
-	ProjectName         string
-	GroupFingerprint    string
-	Category            string
-	Severity            string
-	Title               string
-	NormalizedMessage   string
-	NormalizedStackTop  string
-	Status              string
-	FirstSeenAt         time.Time
-	LastSeenAt          time.Time
-	TotalCount          int64
-	Last24hCount        int64
-	LastRelease         string
-	LastLanguage        string
-	LastPlatform        string
-	SampleEventID       string
-}
-
-type Event struct {
-	ID                 int64
-	EventID            string
-	ProjectID          int64
-	IssueID            int64
-	ReleaseFingerprint string
-	OccurredAt         time.Time
-	Release            string
-	Env                string
-	Category           string
-	Severity           string
-	Message            string
-	Stack              string
-	Route              string
-	Scene              string
-	Module             string
-	Language           string
-	Runtime            string
-	UserID             string
-	RoomID             string
-	SessionID          string
-	DevicePlatform     string
-	DeviceModel        string
-	OSVersion          string
-	SDKVersion         string
-	NetworkType        string
-	APIMethod          string
-	APIPath            string
-	HTTPStatus         int
-	WSPhase            string
-	WSCode             int
-	WSReason           string
-	AssetType          string
-	AssetPath          string
-	AssetURL           string
-	BizCode            string
-	ExtraJSON          string
-}
-
 type IngestEvent struct {
 	EventID        string                 `json:"eventId"`
 	OccurredAt     time.Time              `json:"occurredAt"`
@@ -133,10 +72,6 @@ type TrustedIdentity struct {
 }
 
 const (
-	IssueStatusOpen     = "open"
-	IssueStatusResolved = "resolved"
-	IssueStatusIgnored  = "ignored"
-
 	ProjectStatusActive   = "active"
 	ProjectStatusDisabled = "disabled"
 )

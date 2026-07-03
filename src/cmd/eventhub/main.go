@@ -43,7 +43,6 @@ func main() {
 	seedDemoProject(database)
 
 	projects := store.NewProjectStore(database)
-	issues := store.NewIssueStore(database)
 	ingestStore := store.NewIngestStore(database)
 	trackStore := store.NewTrackStore(database)
 	analyticsStore := store.NewAnalyticsStore(database)
@@ -56,7 +55,7 @@ func main() {
 	reportH := handler.NewReportHandler(cfg, ingestSvc)
 	trackH := handler.NewTrackHandler(cfg, trackSvc, ingestSvc)
 	feedbackH := handler.NewFeedbackHandler(cfg, feedbackSvc, ingestSvc)
-	adminH, err := handler.NewAdminHandler(cfg, issues, projects, analyticsStore, funnelStore, feedbackStore)
+	adminH, err := handler.NewAdminHandler(cfg, projects, analyticsStore, funnelStore, feedbackStore)
 	if err != nil {
 		logger.Fatal("admin handler: %v", err)
 	}
@@ -81,11 +80,8 @@ func main() {
 			r.Group(func(r chi.Router) {
 				r.Use(adminH.RequireAuth)
 				r.Get("/", func(w http.ResponseWriter, req *http.Request) {
-					http.Redirect(w, req, "/reporting/admin/issues", http.StatusSeeOther)
+					http.Redirect(w, req, "/reporting/admin/projects", http.StatusSeeOther)
 				})
-				r.Get("/issues", adminH.IssueList)
-				r.Get("/issues/{id}", adminH.IssueDetail)
-				r.Post("/issues/{id}/status", adminH.UpdateStatus)
 				r.Get("/feedback", adminH.FeedbackList)
 				r.Get("/feedback/{id}", adminH.FeedbackDetail)
 				r.Post("/feedback/{id}/status", adminH.UpdateFeedbackStatus)

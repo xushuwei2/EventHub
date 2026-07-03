@@ -2,7 +2,6 @@ package handler
 
 import (
 	"crypto/rand"
-	"database/sql"
 	"embed"
 	"encoding/hex"
 	"encoding/json"
@@ -22,6 +21,7 @@ import (
 	"github.com/eventhub/eventhub/internal/models"
 	"github.com/eventhub/eventhub/internal/service"
 	"github.com/eventhub/eventhub/internal/store"
+	version "github.com/eventhub/eventhub"
 )
 
 //go:embed web/*
@@ -33,7 +33,6 @@ var projectKeyPattern = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,63}$`)
 
 type AdminHandler struct {
 	cfg       *config.Config
-	issues    *store.IssueStore
 	projects  *store.ProjectStore
 	analytics *store.AnalyticsStore
 	funnels   *store.FunnelStore
@@ -42,7 +41,7 @@ type AdminHandler struct {
 	tmpl      *template.Template
 }
 
-func NewAdminHandler(cfg *config.Config, issues *store.IssueStore, projects *store.ProjectStore, analytics *store.AnalyticsStore, funnels *store.FunnelStore, feedback *store.FeedbackStore) (*AdminHandler, error) {
+func NewAdminHandler(cfg *config.Config, projects *store.ProjectStore, analytics *store.AnalyticsStore, funnels *store.FunnelStore, feedback *store.FeedbackStore) (*AdminHandler, error) {
 	sub, err := fs.Sub(webFS, "web")
 	if err != nil {
 		return nil, err
@@ -53,7 +52,6 @@ func NewAdminHandler(cfg *config.Config, issues *store.IssueStore, projects *sto
 	}
 	return &AdminHandler{
 		cfg:       cfg,
-		issues:    issues,
 		projects:  projects,
 		analytics: analytics,
 		funnels:   funnels,
@@ -70,7 +68,7 @@ func (h *AdminHandler) Static() http.Handler {
 
 func (h *AdminHandler) LoginPage(w http.ResponseWriter, r *http.Request) {
 	if h.currentUser(r) != nil {
-		http.Redirect(w, r, "/reporting/admin/issues", http.StatusSeeOther)
+		http.Redirect(w, r, "/reporting/admin/projects", http.StatusSeeOther)
 		return
 	}
 	h.render(w, "login.html", map[string]interface{}{"Error": ""})
@@ -107,7 +105,7 @@ func (h *AdminHandler) Login(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   86400,
 	})
-	http.Redirect(w, r, "/reporting/admin/issues", http.StatusSeeOther)
+	http.Redirect(w, r, "/reporting/admin/projects", http.StatusSeeOther)
 }
 
 func (h *AdminHandler) ChangePasswordPage(w http.ResponseWriter, r *http.Request) {
@@ -201,98 +199,6 @@ func (h *AdminHandler) currentUser(r *http.Request) *auth.AdminSession {
 		return nil
 	}
 	return sess
-}
-
-func (h *AdminHandler) IssueList(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	filter := store.IssueFilter{
-		ProjectKey: q.Get("project"),
-		Release:    q.Get("release"),
-		Category:   q.Get("category"),
-		Status:     q.Get("status"),
-		Language:   q.Get("language"),
-		Platform:   q.Get("platform"),
-		BizCode:    q.Get("bizCode"),
-		Limit:      100,
-	}
-
-	issues, err := h.issues.List(r.Context(), filter)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	projects, _ := h.projects.ListActive(r.Context())
-
-	h.render(w, "issues.html", map[string]interface{}{
-		"Issues":   issues,
-		"Projects": projects,
-		"Filter":   filter,
-	})
-}
-
-func (h *AdminHandler) IssueDetail(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-
-	issue, err := h.issues.GetByID(r.Context(), id)
-	if errors.Is(err, sql.ErrNoRows) {
-		http.NotFound(w, r)
-		return
-	}
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	events, _ := h.issues.RecentEvents(r.Context(), id, 10)
-	releases, _ := h.issues.DistinctField(r.Context(), id, "release")
-	languages, _ := h.issues.DistinctField(r.Context(), id, "language")
-	platforms, _ := h.issues.DistinctField(r.Context(), id, "device_platform")
-	bizCodes, _ := h.issues.DistinctField(r.Context(), id, "biz_code")
-	apiPaths, _ := h.issues.DistinctField(r.Context(), id, "api_path")
-	wsPhases, _ := h.issues.DistinctField(r.Context(), id, "ws_phase")
-	assetTypes, _ := h.issues.DistinctField(r.Context(), id, "asset_type")
-	trend7d, _ := h.issues.DailyTrend(r.Context(), id, 7)
-	trend24h, _ := h.issues.DailyTrend(r.Context(), id, 1)
-
-	h.render(w, "issue_detail.html", map[string]interface{}{
-		"Issue":      issue,
-		"Events":     events,
-		"Releases":   releases,
-		"Languages":  languages,
-		"Platforms":  platforms,
-		"BizCodes":   bizCodes,
-		"APIPaths":   apiPaths,
-		"WSPhases":   wsPhases,
-		"AssetTypes": assetTypes,
-		"Trend7d":    trend7d,
-		"Trend24h":   trend24h,
-	})
-}
-
-func (h *AdminHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, "bad request", http.StatusBadRequest)
-		return
-	}
-	status := r.FormValue("status")
-	if status != models.IssueStatusOpen && status != models.IssueStatusResolved && status != models.IssueStatusIgnored {
-		http.Error(w, "invalid status", http.StatusBadRequest)
-		return
-	}
-	if err := h.issues.UpdateStatus(r.Context(), id, status); err != nil {
-		http.NotFound(w, r)
-		return
-	}
-	http.Redirect(w, r, "/reporting/admin/issues/"+strconv.FormatInt(id, 10), http.StatusSeeOther)
 }
 
 func (h *AdminHandler) ProjectList(w http.ResponseWriter, r *http.Request) {
@@ -520,8 +426,6 @@ func (h *AdminHandler) SignTestToken(w http.ResponseWriter, r *http.Request) {
 }
 
 var templateNavActive = map[string]string{
-	"issues.html":              "issues",
-	"issue_detail.html":        "issues",
 	"feedback_list.html":       "feedback",
 	"feedback_detail.html":     "feedback",
 	"analytics_overview.html":  "analytics",
@@ -541,6 +445,7 @@ func (h *AdminHandler) render(w http.ResponseWriter, name string, data map[strin
 	if data == nil {
 		data = make(map[string]interface{})
 	}
+	data["Version"] = version.Version
 	if active, ok := templateNavActive[name]; ok {
 		data["NavActive"] = active
 	}

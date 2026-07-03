@@ -1,10 +1,12 @@
 {{define "nav"}}
 <header class="topbar">
-  <div class="brand">EventHub</div>
+  <div class="brand">
+    EventHub
+    <span class="app-version">v{{.Version}}</span>
+  </div>
   <nav class="nav-grouped">
     <div class="nav-group">
       <span class="nav-label">监控</span>
-      <a href="/reporting/admin/issues" class="{{if eq .NavActive "issues"}}active{{end}}">问题列表</a>
       <a href="/reporting/admin/feedback" class="{{if eq .NavActive "feedback"}}active{{end}}">用户反馈</a>
     </div>
     <div class="nav-group">

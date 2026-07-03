@@ -3,7 +3,7 @@ services:
     image: jpccr.ccs.tencentyun.com/eventhub/eventhub:${EVENTHUB_VERSION}
     restart: unless-stopped
     ports:
-      - "6185:8080"
+      - "6085:8080"
     env_file:
       - ./config/.env
     environment:
