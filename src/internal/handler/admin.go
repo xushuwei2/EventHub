@@ -16,12 +16,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	version "github.com/eventhub/eventhub"
 	"github.com/eventhub/eventhub/internal/auth"
 	"github.com/eventhub/eventhub/internal/config"
 	"github.com/eventhub/eventhub/internal/models"
 	"github.com/eventhub/eventhub/internal/service"
 	"github.com/eventhub/eventhub/internal/store"
-	version "github.com/eventhub/eventhub"
 )
 
 //go:embed web/*
@@ -450,6 +450,8 @@ func (h *AdminHandler) render(w http.ResponseWriter, name string, data map[strin
 		data["NavActive"] = active
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
 	if err := h.tmpl.ExecuteTemplate(w, name, data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

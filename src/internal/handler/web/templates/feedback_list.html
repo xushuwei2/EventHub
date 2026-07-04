@@ -10,7 +10,7 @@
   {{template "nav" .}}
   <main class="container">
     <h1>用户反馈</h1>
-    <p class="subtitle">App 用户主动提交的问题描述与建议，每条反馈独立记录。</p>
+    <p class="subtitle">App 用户主动提交的问题描述与建议，每条反馈独立记录。共 {{len .Feedbacks}} 条。</p>
 
     <form class="filters" method="get">
       <select name="project">
@@ -40,13 +40,14 @@
     <table>
       <thead>
         <tr>
-          <th>项目</th><th>状态</th><th>分类</th><th>内容摘要</th>
+          <th>#</th><th>项目</th><th>状态</th><th>分类</th><th>内容摘要</th>
           <th>用户</th><th>提交时间</th><th>版本</th><th>平台</th><th>联系方式</th>
         </tr>
       </thead>
       <tbody>
         {{range .Feedbacks}}
         <tr>
+          <td>{{.ID}}</td>
           <td><code>{{.ProjectKey}}</code></td>
           <td><span class="badge status-{{.Status}}">{{.Status}}</span></td>
           <td>{{.Category}}</td>
@@ -58,7 +59,7 @@
           <td>{{if .Contact}}{{.Contact}}{{else}}—{{end}}</td>
         </tr>
         {{else}}
-        <tr><td colspan="9" class="empty">暂无反馈</td></tr>
+        <tr><td colspan="10" class="empty">暂无反馈</td></tr>
         {{end}}
       </tbody>
     </table>

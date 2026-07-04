@@ -14,6 +14,10 @@ import (
 
 func (h *AdminHandler) FeedbackList(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
+	if clean := canonicalFeedbackListURL(r); clean != "" {
+		http.Redirect(w, r, clean, http.StatusFound)
+		return
+	}
 	filter := store.FeedbackFilter{
 		ProjectKey: q.Get("project"),
 		Status:     q.Get("status"),
@@ -87,4 +91,21 @@ func (h *AdminHandler) UpdateFeedbackStatus(w http.ResponseWriter, r *http.Reque
 	}
 
 	http.Redirect(w, r, "/reporting/admin/feedback/"+strconv.FormatInt(id, 10), http.StatusSeeOther)
+}
+
+func canonicalFeedbackListURL(r *http.Request) string {
+	q := r.URL.Query()
+	changed := false
+	for _, key := range []string{"category", "status", "userId"} {
+		if q.Has(key) && q.Get(key) == "" {
+			q.Del(key)
+			changed = true
+		}
+	}
+	if !changed {
+		return ""
+	}
+	u := *r.URL
+	u.RawQuery = q.Encode()
+	return u.RequestURI()
 }
