@@ -1,0 +1,13 @@
+[Unit]
+Description=EventHub
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/match3/eventhub/eventhub
+ExecStart=/home/match3/eventhub/eventhub/eventhub
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

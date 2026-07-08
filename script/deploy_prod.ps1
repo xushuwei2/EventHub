@@ -1,14 +1,12 @@
-﻿# 功能说明：编译 Docker 镜像、推送到 Registry，并部署到生产环境
+﻿# 功能说明：交叉编译 Linux 二进制并部署到生产环境（systemd 用户服务）
 
 param(
     [string]$Version = "",
     [string]$SshHost = "match3@52.193.110.105",
     [string]$RemoteDir = "/home/match3/eventhub/eventhub",
-    [string]$Registry = "jpccr.ccs.tencentyun.com/eventhub/eventhub",
     [string]$HealthUrl = "https://eventhub.bffbond.com/healthz",
     [switch]$SkipBuild,
-    [switch]$SkipDeploy,
-    [switch]$AlsoLatest
+    [switch]$SkipDeploy
 )
 
 $ErrorActionPreference = "Stop"
@@ -31,11 +29,16 @@ function Get-VersionFromSource {
     throw "无法从 src/version.go 读取版本号"
 }
 
-function Test-DockerAvailable {
-    $null = docker version 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        throw "未找到 Docker 或 Docker 未运行，请先安装并启动 Docker"
-    }
+function Get-LinuxBinaryPath {
+    return Join-Path (Get-ProjectRoot) ".temp\linux\eventhub"
+}
+
+function Get-EnvExamplePath {
+    return Join-Path (Get-ProjectRoot) "config\.env.example"
+}
+
+function Get-ServiceUnitPath {
+    return Join-Path (Get-ProjectRoot) "deploy\eventhub.service"
 }
 
 function Test-SshAvailable {
@@ -48,163 +51,129 @@ function Test-SshAvailable {
     }
 }
 
-function Invoke-BuildAndPush {
-    param(
-        [string]$Ver,
-        [string]$ImageRegistry,
-        [bool]$NoBuild,
-        [bool]$PushLatest,
-        [string]$ImageTarPath
-    )
+function Invoke-BuildLinux {
+    param([bool]$NoBuild)
 
     if ($NoBuild) {
-        Write-Host "[deploy] 跳过镜像构建与推送" -ForegroundColor Yellow
-        return $null
+        $bin = Get-LinuxBinaryPath
+        if (-not (Test-Path $bin)) {
+            throw "跳过构建但本地不存在 Linux 二进制: $bin"
+        }
+        Write-Host "[deploy] 跳过构建，使用已有二进制: $bin" -ForegroundColor Yellow
+        return (Resolve-Path $bin).Path
     }
 
-    Test-DockerAvailable
+    Write-Host "[deploy] 交叉编译 Linux 二进制..."
+    & (Join-Path $PSScriptRoot "build.ps1") -Release -Linux
+    if ($LASTEXITCODE -ne 0) { throw "Linux 二进制构建失败" }
 
-    $pushArgs = @{
-        Version  = $Ver
-        Registry = $ImageRegistry
+    $bin = Get-LinuxBinaryPath
+    if (-not (Test-Path $bin)) {
+        throw "构建完成但未找到二进制: $bin"
     }
-    if ($PushLatest) { $pushArgs.AlsoLatest = $true }
-
-    $pushOk = $false
-    $prevEAP = $ErrorActionPreference
-    $ErrorActionPreference = "Continue"
-    try {
-        & (Join-Path $PSScriptRoot "docker-push.ps1") @pushArgs
-        $pushOk = ($LASTEXITCODE -eq 0)
-    } finally {
-        $ErrorActionPreference = $prevEAP
-    }
-
-    if ($pushOk) { return $null }
-
-    Write-Host "[deploy] Registry 推送失败，改为本地打包镜像上传" -ForegroundColor Yellow
-    $tag = "${ImageRegistry}:${Ver}"
-    if (-not (Test-Path $ImageTarPath)) {
-        New-Item -ItemType Directory -Path (Split-Path $ImageTarPath -Parent) -Force | Out-Null
-    }
-    docker save -o $ImageTarPath $tag
-    if ($LASTEXITCODE -ne 0) { throw "镜像打包失败: $tag" }
-    return (Resolve-Path $ImageTarPath).Path
-}
-
-function Get-ComposeProdPath {
-    return Join-Path (Get-ProjectRoot) "docker\eventhub\eventhub\docker-compose.prod.yml"
-}
-
-function Get-EnvExamplePath {
-    return Join-Path (Get-ProjectRoot) "docker\eventhub\eventhub\config\.env.example"
-}
-
-function Get-RootlessDockerSetup {
-    return 'export PATH="$HOME/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"; export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"; export DOCKER_HOST="unix:///run/user/$(id -u)/docker.sock"; if ! docker info >/dev/null 2>&1; then if command -v systemctl >/dev/null 2>&1 && systemctl --user is-enabled docker.service >/dev/null 2>&1; then systemctl --user start docker.service; else nohup "$HOME/bin/dockerd-rootless.sh" >>"$HOME/.docker/dockerd.log" 2>&1 & fi; i=0; while [ $i -lt 30 ]; do docker info >/dev/null 2>&1 && break; i=$((i+1)); sleep 1; done; docker info >/dev/null 2>&1 || { echo "rootless docker 未就绪"; exit 1; }; fi'
+    return (Resolve-Path $bin).Path
 }
 
 function Invoke-RemoteShell {
     param(
         [string]$HostName,
-        [string]$Command,
-        [switch]$NoRootless
+        [string]$Command
     )
 
-    if ($NoRootless) {
-        ssh $HostName $Command
-    } else {
-        $setup = Get-RootlessDockerSetup
-        ssh $HostName "$setup; $Command"
-    }
+    ssh $HostName $Command
     if ($LASTEXITCODE -ne 0) {
         throw "远程命令失败: $Command"
     }
 }
 
-function Update-RemoteComposeEnv {
-    param(
-        [string]$HostName,
-        [string]$TargetDir,
-        [string]$Ver
-    )
-
-    $cmd = "echo EVENTHUB_VERSION=$Ver > $TargetDir/.env"
-    Invoke-RemoteShell -HostName $HostName -Command $cmd
-}
-
-function Invoke-StopSystemDockerEventHub {
+function Invoke-StopLegacyDocker {
     param(
         [string]$HostName,
         [string]$TargetDir
     )
 
-    Write-Host "[deploy] 停止系统 Docker 上的旧 EventHub 容器（如存在）" -ForegroundColor Yellow
-    $cmd = "cd $TargetDir && DOCKER_HOST=unix:///var/run/docker.sock docker compose -f docker-compose.prod.yml down 2>/dev/null || true"
+    Write-Host "[deploy] 停止旧 Docker 部署（如存在）" -ForegroundColor Yellow
+    $cmd = @(
+        "export PATH=`"`$HOME/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`"",
+        "export XDG_RUNTIME_DIR=`"`${XDG_RUNTIME_DIR:-/run/user/`$(id -u)}`"",
+        "export DOCKER_HOST=`"unix:///run/user/`$(id -u)/docker.sock`"",
+        "cd $TargetDir",
+        "docker compose -f docker-compose.prod.yml down 2>/dev/null || true",
+        "DOCKER_HOST=unix:///var/run/docker.sock docker compose -f docker-compose.prod.yml down 2>/dev/null || true",
+        "rm -f docker-compose.prod.yml .env"
+    ) -join "; "
     ssh $HostName $cmd
 }
 
-function Invoke-SyncDeployFiles {
-    param(
-        [string]$HostName,
-        [string]$TargetDir
-    )
+function Invoke-EnsureRemoteLayout {
+    param([string]$HostName)
 
-    $composeFile = Get-ComposeProdPath
-    if (-not (Test-Path $composeFile)) {
-        throw "缺少生产 compose 文件: $composeFile"
+    $remoteEnv = "$RemoteDir/config/.env"
+    $envExample = Get-EnvExamplePath
+    if (-not (Test-Path $envExample)) {
+        throw "缺少配置模板: $envExample"
     }
 
-    Write-Host "[deploy] 同步部署文件到 ${HostName}:${TargetDir}"
-    Invoke-RemoteShell -HostName $HostName -Command "mkdir -p $TargetDir/config $TargetDir/data/log" -NoRootless
+    Write-Host "[deploy] 初始化远程目录: ${HostName}:${RemoteDir}"
+    Invoke-RemoteShell -HostName $HostName -Command "mkdir -p $RemoteDir/config $RemoteDir/log ~/.config/systemd/user"
 
-    scp $composeFile "${HostName}:${TargetDir}/docker-compose.prod.yml"
-    if ($LASTEXITCODE -ne 0) { throw "上传 docker-compose.prod.yml 失败" }
-
-    $remoteEnv = "$TargetDir/config/.env"
     $envExists = ssh $HostName "test -f $remoteEnv && echo yes || echo no"
     if ($envExists.Trim() -ne "yes") {
-        $envExample = Get-EnvExamplePath
-        if (-not (Test-Path $envExample)) {
-            throw "远程缺少 $remoteEnv，且本地无 .env.example 可上传"
-        }
         Write-Host "[deploy] 远程无 config/.env，上传 .env.example（请登录服务器修改生产配置）" -ForegroundColor Yellow
         scp $envExample "${HostName}:${remoteEnv}"
         if ($LASTEXITCODE -ne 0) { throw "上传 config/.env 失败" }
     }
 }
 
+function Invoke-InstallSystemdUnit {
+    param([string]$HostName)
+
+    $unitFile = Get-ServiceUnitPath
+    if (-not (Test-Path $unitFile)) {
+        throw "缺少 systemd 单元文件: $unitFile"
+    }
+
+    Write-Host "[deploy] 安装 systemd 用户服务"
+    scp $unitFile "${HostName}:~/.config/systemd/user/eventhub.service"
+    if ($LASTEXITCODE -ne 0) { throw "上传 eventhub.service 失败" }
+
+    Invoke-RemoteShell -HostName $HostName -Command "systemctl --user daemon-reload"
+}
+
+function Invoke-EnsureLinger {
+    param([string]$HostName)
+
+    $username = ($HostName -split "@")[-1]
+    if ($HostName -match "^([^@]+)@") {
+        $username = $Matches[1]
+    }
+
+    Write-Host "[deploy] 确保用户服务可脱离登录会话运行"
+    ssh $HostName "loginctl show-user $username -p Linger 2>/dev/null | grep -q yes || loginctl enable-linger $username 2>/dev/null || true"
+}
+
 function Invoke-RemoteDeploy {
     param(
         [string]$HostName,
-        [string]$TargetDir,
-        [string]$Ver,
-        [string]$ImageTar
+        [string]$BinaryPath,
+        [string]$Ver
     )
 
-    Invoke-StopSystemDockerEventHub -HostName $HostName -TargetDir $TargetDir
-    Update-RemoteComposeEnv -HostName $HostName -TargetDir $TargetDir -Ver $Ver
+    Invoke-StopLegacyDocker -HostName $HostName -TargetDir $RemoteDir
+    Invoke-EnsureRemoteLayout -HostName $HostName
+    Invoke-InstallSystemdUnit -HostName $HostName
+    Invoke-EnsureLinger -HostName $HostName
 
-    if ($ImageTar -and (Test-Path $ImageTar)) {
-        $remoteTar = "$TargetDir/eventhub-$Ver.tar"
-        Write-Host "[deploy] 上传镜像到生产服务器"
-        scp $ImageTar "${HostName}:${remoteTar}"
-        if ($LASTEXITCODE -ne 0) { throw "上传镜像失败" }
-        $loadCmd = "docker load -i $remoteTar && rm -f $remoteTar"
-        Invoke-RemoteShell -HostName $HostName -Command $loadCmd
-    } else {
-        $pullCmd = "cd $TargetDir && docker compose -f docker-compose.prod.yml pull eventhub"
-        Invoke-RemoteShell -HostName $HostName -Command $pullCmd
-    }
+    Write-Host "[deploy] 停止旧服务以便替换二进制"
+    Invoke-RemoteShell -HostName $HostName -Command "systemctl --user stop eventhub 2>/dev/null || true"
 
-    $deployCmd = @(
-        "cd $TargetDir",
-        "docker compose -f docker-compose.prod.yml up -d",
-        "docker compose -f docker-compose.prod.yml ps"
-    ) -join " && "
+    Write-Host "[deploy] 上传二进制 (版本: $Ver)"
+    scp $BinaryPath "${HostName}:${RemoteDir}/eventhub"
+    if ($LASTEXITCODE -ne 0) { throw "上传二进制失败" }
 
-    Write-Host "[deploy] 远程启动服务 (rootless, 版本: $Ver)"
-    Invoke-RemoteShell -HostName $HostName -Command $deployCmd
+    Invoke-RemoteShell -HostName $HostName -Command "chmod +x $RemoteDir/eventhub"
+    Invoke-RemoteShell -HostName $HostName -Command "systemctl --user enable --now eventhub"
+    Invoke-RemoteShell -HostName $HostName -Command "systemctl --user status eventhub --no-pager"
 }
 
 function Test-DeployHealth {
@@ -221,7 +190,7 @@ function Test-DeployHealth {
     }
 
     Write-Host "[deploy] 健康检查未通过 (HTTP $code)，服务可能仍在启动或 CDN 未就绪" -ForegroundColor Yellow
-    Write-Host "[deploy] 可在服务器执行: ssh $SshHost 'cd $RemoteDir && docker compose -f docker-compose.prod.yml logs --tail=50 eventhub'"
+    Write-Host "[deploy] 可在服务器执行: ssh $SshHost 'journalctl --user -u eventhub --no-pager -n 50'"
 }
 
 function Invoke-DeployProd {
@@ -229,21 +198,16 @@ function Invoke-DeployProd {
         [string]$Ver,
         [string]$HostName,
         [string]$TargetDir,
-        [string]$ImageRegistry,
         [string]$CheckUrl,
         [bool]$NoBuild,
-        [bool]$NoDeploy,
-        [bool]$PushLatest
+        [bool]$NoDeploy
     )
 
-    $imageTar = Join-Path (Get-ProjectRoot) ".temp\eventhub-$Ver.tar"
-
     Write-Host "[deploy] 版本: $Ver" -ForegroundColor Cyan
-    Write-Host "[deploy] 镜像: ${ImageRegistry}:$Ver"
-    Write-Host "[deploy] SSH: $HostName (rootless docker)"
+    Write-Host "[deploy] SSH: $HostName"
     Write-Host "[deploy] 部署目录: $TargetDir"
 
-    $uploadedTar = Invoke-BuildAndPush -Ver $Ver -ImageRegistry $ImageRegistry -NoBuild $NoBuild -PushLatest $PushLatest -ImageTarPath $imageTar
+    $binaryPath = Invoke-BuildLinux -NoBuild $NoBuild
 
     if ($NoDeploy) {
         Write-Host "[deploy] 跳过远程部署" -ForegroundColor Yellow
@@ -251,8 +215,7 @@ function Invoke-DeployProd {
     }
 
     Test-SshAvailable -HostName $HostName
-    Invoke-SyncDeployFiles -HostName $HostName -TargetDir $TargetDir
-    Invoke-RemoteDeploy -HostName $HostName -TargetDir $TargetDir -Ver $Ver -ImageTar $uploadedTar
+    Invoke-RemoteDeploy -HostName $HostName -BinaryPath $binaryPath -Ver $Ver
     Test-DeployHealth -Url $CheckUrl
 
     Write-Host "[deploy] 生产部署完成" -ForegroundColor Green
@@ -268,8 +231,6 @@ Invoke-DeployProd `
     -Ver $Version `
     -HostName $SshHost `
     -TargetDir $RemoteDir `
-    -ImageRegistry $Registry `
     -CheckUrl $HealthUrl `
     -NoBuild $SkipBuild.IsPresent `
-    -NoDeploy $SkipDeploy.IsPresent `
-    -PushLatest $AlsoLatest.IsPresent
+    -NoDeploy $SkipDeploy.IsPresent

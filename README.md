@@ -22,7 +22,7 @@ script/              构建与发布脚本
   log/               运行日志
 .temp/               编译中间文件
 .dist/               本地发布产物
-docker/              Docker 部署
+deploy/              生产部署（systemd 单元）
 doc/                 设计文档
 aidoc/               AI 生成文档
 0run.ps1             一键编译运行
@@ -70,16 +70,6 @@ aidoc/               AI 生成文档
 ```powershell
 cd src; go run ./cmd/hashpassword your-password
 ```
-
-### 4. Docker Compose 启动
-
-```bash
-export ADMIN_PASSWORD_HASH=$(cd src && go run ./cmd/hashpassword admin123)
-cd docker/eventhub/eventhub
-docker compose up --build
-```
-
-详见 [docker/readme.md](docker/readme.md)。
 
 ## 上报示例
 

@@ -17,7 +17,7 @@ function Invoke-InitDev {
     $root = Get-ProjectRoot
     $src = Join-Path $root "src"
     $runConfig = Join-Path $root ".run\config"
-    $envExample = Join-Path $runConfig ".env.example"
+    $envExample = Join-Path $root "config\.env.example"
     $envFile = Join-Path $runConfig ".env"
 
     Write-Host "[init] 检查 Go 环境..."

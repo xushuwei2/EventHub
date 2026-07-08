@@ -1,7 +1,8 @@
 ﻿# 功能说明：构建 EventHub 前后端可执行文件，输出到 .run 目录
 
 param(
-    [switch]$Release
+    [switch]$Release,
+    [switch]$Linux
 )
 
 $ErrorActionPreference = "Stop"
@@ -16,7 +17,10 @@ function Get-ProjectRoot {
 }
 
 function Invoke-Build {
-    param([bool]$IsRelease)
+    param(
+        [bool]$IsRelease,
+        [bool]$ForLinux
+    )
 
     $root = Get-ProjectRoot
     $src = Join-Path $root "src"
@@ -42,28 +46,59 @@ function Invoke-Build {
         Write-Host "[build] Debug 模式" -ForegroundColor Cyan
     }
 
+    if ($ForLinux) {
+        $env:GOOS = "linux"
+        $env:GOARCH = "amd64"
+        $env:CGO_ENABLED = "0"
+        $out = Join-Path $temp "linux"
+        if (-not (Test-Path $out)) {
+            New-Item -ItemType Directory -Path $out -Force | Out-Null
+        }
+        Write-Host "[build] 目标平台: linux/amd64" -ForegroundColor Cyan
+    } else {
+        Remove-Item Env:GOOS -ErrorAction SilentlyContinue
+        Remove-Item Env:GOARCH -ErrorAction SilentlyContinue
+        Remove-Item Env:CGO_ENABLED -ErrorAction SilentlyContinue
+    }
+
+    $eventhubOut = if ($ForLinux) {
+        Join-Path $out "eventhub"
+    } else {
+        Join-Path $out "eventhub.exe"
+    }
+    $hashpasswordOut = if ($ForLinux) {
+        Join-Path $out "hashpassword"
+    } else {
+        Join-Path $out "hashpassword.exe"
+    }
+
     Push-Location $src
     try {
         Write-Host "[build] 编译 eventhub..."
         if ($ldflags) {
-            go build -ldflags $ldflags -o (Join-Path $out "eventhub.exe") ./cmd/eventhub
+            go build -ldflags $ldflags -o $eventhubOut ./cmd/eventhub
         } else {
-            go build -o (Join-Path $out "eventhub.exe") ./cmd/eventhub
+            go build -o $eventhubOut ./cmd/eventhub
         }
         if ($LASTEXITCODE -ne 0) { throw "eventhub 编译失败" }
 
-        Write-Host "[build] 编译 hashpassword..."
-        if ($ldflags) {
-            go build -ldflags $ldflags -o (Join-Path $out "hashpassword.exe") ./cmd/hashpassword
-        } else {
-            go build -o (Join-Path $out "hashpassword.exe") ./cmd/hashpassword
+        if (-not $ForLinux) {
+            Write-Host "[build] 编译 hashpassword..."
+            if ($ldflags) {
+                go build -ldflags $ldflags -o $hashpasswordOut ./cmd/hashpassword
+            } else {
+                go build -o $hashpasswordOut ./cmd/hashpassword
+            }
+            if ($LASTEXITCODE -ne 0) { throw "hashpassword 编译失败" }
         }
-        if ($LASTEXITCODE -ne 0) { throw "hashpassword 编译失败" }
 
         Write-Host "[build] 完成，输出目录: $out" -ForegroundColor Green
     } finally {
         Pop-Location
+        Remove-Item Env:GOOS -ErrorAction SilentlyContinue
+        Remove-Item Env:GOARCH -ErrorAction SilentlyContinue
+        Remove-Item Env:CGO_ENABLED -ErrorAction SilentlyContinue
     }
 }
 
-Invoke-Build -IsRelease $Release.IsPresent
+Invoke-Build -IsRelease $Release.IsPresent -ForLinux $Linux.IsPresent

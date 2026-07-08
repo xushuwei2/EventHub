@@ -434,7 +434,7 @@
 - MySQL
 - embed migrations
 - 环境变量配置
-- Docker 独立容器
+- Linux 二进制 + systemd 用户服务
 
 ### 12.2 推荐环境变量
 

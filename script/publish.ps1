@@ -50,7 +50,7 @@ function Invoke-Publish {
         Copy-Item $src (Join-Path $releaseDir $f)
     }
 
-    Copy-Item (Join-Path $root ".run\config\.env.example") (Join-Path $releaseDir ".env.example")
+    Copy-Item (Join-Path $root "config\.env.example") (Join-Path $releaseDir ".env.example")
     Copy-Item (Join-Path $root "README.md") (Join-Path $releaseDir "README.md")
 
     Write-Host "[publish] 已发布到 $releaseDir" -ForegroundColor Green
