@@ -65,6 +65,7 @@ func main() {
 	r.Use(middleware.RealIP)
 	r.Use(recoverMiddleware)
 	r.Use(middleware.Logger)
+	r.Use(handler.NoCacheMiddleware)
 
 	r.Route("/reporting", func(r chi.Router) {
 		r.Post("/v1/events/batch", reportH.Batch)
